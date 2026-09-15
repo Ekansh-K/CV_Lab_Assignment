@@ -1,0 +1,11 @@
+{
+  "video": "clip2_street_crowd.mp4",
+  "tracker": "hybrid",
+  "frames": 450,
+  "seconds_wall": 62.1,
+  "unique_ids": 59,
+  "boxes": 3880,
+  "boxes_per_frame": 8.62,
+  "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip2_street_crowd/vis.mp4",
+  "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip2_street_crowd/mot.txt"
+}

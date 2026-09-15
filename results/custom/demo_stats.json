@@ -1,0 +1,68 @@
+[
+  {
+    "video": "clip3_park_walk.mp4",
+    "tracker": "hybrid",
+    "frames": 318,
+    "seconds_wall": 49.44,
+    "unique_ids": 2,
+    "boxes": 636,
+    "boxes_per_frame": 2.0,
+    "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip3_park_walk/vis.mp4",
+    "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip3_park_walk/mot.txt"
+  },
+  {
+    "video": "clip2_street_crowd.mp4",
+    "tracker": "hybrid",
+    "frames": 450,
+    "seconds_wall": 62.1,
+    "unique_ids": 59,
+    "boxes": 3880,
+    "boxes_per_frame": 8.62,
+    "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip2_street_crowd/vis.mp4",
+    "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip2_street_crowd/mot.txt"
+  },
+  {
+    "video": "clip1_crosswalk.mp4",
+    "tracker": "hybrid",
+    "frames": 450,
+    "seconds_wall": 74.87,
+    "unique_ids": 587,
+    "boxes": 4064,
+    "boxes_per_frame": 9.03,
+    "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip1_crosswalk/vis.mp4",
+    "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip1_crosswalk/mot.txt"
+  },
+  {
+    "video": "clip2_street_crowd.mp4",
+    "tracker": "byte",
+    "frames": 450,
+    "seconds_wall": 61.95,
+    "unique_ids": 52,
+    "boxes": 3787,
+    "boxes_per_frame": 8.42,
+    "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip2_street_crowd/vis.mp4",
+    "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip2_street_crowd/mot.txt"
+  },
+  {
+    "video": "clip3_park_walk.mp4",
+    "tracker": "byte",
+    "frames": 318,
+    "seconds_wall": 53.22,
+    "unique_ids": 2,
+    "boxes": 636,
+    "boxes_per_frame": 2.0,
+    "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip3_park_walk/vis.mp4",
+    "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip3_park_walk/mot.txt"
+  },
+  {
+    "video": "clip1_crosswalk.mp4",
+    "tracker": "byte",
+    "frames": 450,
+    "seconds_wall": 64.93,
+    "unique_ids": 433,
+    "boxes": 6106,
+    "boxes_per_frame": 13.57,
+    "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip1_crosswalk/vis.mp4",
+    "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip1_crosswalk/mot.txt"
+  }
+]

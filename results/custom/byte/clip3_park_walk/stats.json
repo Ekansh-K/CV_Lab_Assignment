@@ -1,0 +1,11 @@
+{
+  "video": "clip3_park_walk.mp4",
+  "tracker": "byte",
+  "frames": 318,
+  "seconds_wall": 53.22,
+  "unique_ids": 2,
+  "boxes": 636,
+  "boxes_per_frame": 2.0,
+  "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip3_park_walk/vis.mp4",
+  "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/byte/clip3_park_walk/mot.txt"
+}

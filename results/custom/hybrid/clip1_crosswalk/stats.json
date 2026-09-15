@@ -1,0 +1,11 @@
+{
+  "video": "clip1_crosswalk.mp4",
+  "tracker": "hybrid",
+  "frames": 450,
+  "seconds_wall": 74.87,
+  "unique_ids": 587,
+  "boxes": 4064,
+  "boxes_per_frame": 9.03,
+  "vis": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip1_crosswalk/vis.mp4",
+  "mot": "/home/ubuntu/CV_Lab_Assignment/results/custom/hybrid/clip1_crosswalk/mot.txt"
+}
