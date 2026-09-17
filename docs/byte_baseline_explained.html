@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BYTE Baseline (ByteTrack) — Full Architecture Explainer | CV Lab</title>
+<style>
+:root{--bg:#0f1420;--card:#182034;--line:#2a3a5e;--txt:#e8eefc;--mut:#9fb0d0;--acc:#5cc8ff;--acc2:#a78bfa;--ok:#34d399;--warn:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.65 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 20px 80px}
+.hero{background:linear-gradient(135deg,#1b2a52,#3b1f6e);border:1px solid var(--line);border-radius:18px;padding:28px}
+.hero h1{margin:0 0 8px;font-size:30px}.hero p{margin:6px 0;color:#d6e2ff}
+.badge{display:inline-block;background:#0b1226;border:1px solid var(--line);border-radius:999px;padding:3px 12px;margin:3px 6px 3px 0;font-size:13px;color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin:18px 0}
+h2{color:var(--acc);margin:6px 0 10px;font-size:22px}h3{color:#fff;margin:18px 0 8px}
+code,kbd{background:#0b1226;border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px}
+pre{background:#0b1226;border:1px solid var(--line);border-radius:12px;padding:14px;overflow:auto;font-size:13px;line-height:1.55;color:#d8e6ff}
+table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}th,td{border:1px solid var(--line);padding:8px 10px;text-align:left}th{background:#0b1226;color:var(--acc)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:800px){.grid{grid-template-columns:1fr}}
+.flow{display:flex;align-items:stretch;gap:0;flex-wrap:wrap;margin:12px 0}
+.step{flex:1 1 150px;background:#0b1226;border:1px solid var(--acc);border-radius:10px;padding:10px;text-align:center;font-size:13.5px}
+.arrow{align-self:center;padding:0 8px;color:var(--acc);font-weight:800}
+.mut{color:var(--mut)}.ok{color:var(--ok)}.warn{color:var(--warn)}
+.diagram{background:#0b1226;border:1px dashed var(--acc);border-radius:12px;padding:14px;font-size:13.5px}
+ul.tight li{margin:4px 0}
+a{color:var(--acc)}
+.toc a{display:block;padding:3px 0;text-decoration:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="hero">
+<h1>BASE-0: BYTE (ByteTrack reimplementation) — Full Detail</h1>
+<p><b>Paper:</b> Zhang et al., <i>ByteTrack: Multi-Object Tracking by Associating Every Detection Box</i>, ECCV 2022 (arXiv:2110.06864)</p>
+<p><b>In this project:</b> <code>BYTE</code> = ByteTrack associator in <code>ymzis69/HybridSORT</code> via <code>tools/run_byte_dance.py</code> + official DanceTrack YOLOX-X weights <code>bytetrack_dance_model.pth.tar</code>. Same detections that Hybrid-SORT later reuses.</p>
+<div>
+<span class="badge">tracking-by-detection</span><span class="badge">YOLOX-X detector</span><span class="badge">BYTE 2-stage matching</span><span class="badge">Kalman + IoU, no ReID</span><span class="badge">DanceTrack val HOTA 47.124</span>
+</div>
+<p class="mut">File: <code>docs/byte_baseline_explained.html</code> — generated for this repo. Companion numbers: <code>results/dancetrack_val/metrics.md</code>, <code>docs/report-notes.md</code>, <code>docs/superpowers/specs/2026-08-19-det-track-lab-design.md</code>.</p>
+</div>
+
+<div class="card toc">
+<h2>Contents</h2>
+<a href="#s1">1. What problem BASE-0 solves</a>
+<a href="#s2">2. System overview (end-to-end pipeline)</a>
+<a href="#s3">3. Detector: YOLOX-X in detail</a>
+<a href="#s4">4. Motion model: Kalman filter</a>
+<a href="#s5">5. Core invention: BYTE association (keep every box)</a>
+<a href="#s6">6. Tracklet lifecycle (states)</a>
+<a href="#s7">7. Pseudocode + thresholds used here</a>
+<a href="#s8">8. Why it scores 47.1 HOTA on DanceTrack val</a>
+<a href="#s9">9. Failure modes → why Hybrid-SORT is needed</a>
+<a href="#s10">10. Repo mapping: where BASE-0 lives in your folder</a>
+<a href="#s11">11. References</a>
+</div>
+
+<div class="card" id="s1">
+<h2>1. What problem BASE-0 solves</h2>
+<p><b>Multi-Object Tracking (MOT):</b> given video frames, output <i>trajectories</i> — <code>frame, id, x, y, w, h</code> per person, with stable IDs through occlusion, crossings, camera shake.</p>
+<div class="grid">
+<div>
+<h3>Three families</h3>
+<ul class="tight">
+<li><b>Tracking-by-detection (this base):</b> strong detector + lightweight associator. Wins on crowded linear MOT17/MOT20. Example: SORT → DeepSORT → ByteTrack → OC-SORT → Hybrid-SORT.</li>
+<li><b>Joint detection+embedding (JDE):</b> one net outputs boxes + ReID vector (FairMOT, YOLO11-JDE). Good when clothes differ.</li>
+<li><b>End-to-end query trackers:</b> Transformer propagates queries (MOTR, MOTRv2). Wins on dance/sports non-linear motion, needs 8 GPUs.</li>
+</ul>
+</div>
+<div>
+<h3>Why ByteTrack was the 2022 inflection</h3>
+<ul class="tight">
+<li>Before: throw away boxes with <code>score &lt; 0.5–0.6</code>. Occluded people vanish → FN + ID switches.</li>
+<li>ByteTrack insight: <b>low-score boxes are usually occluded true positives, not background.</b> Match them in a second round with motion only.</li>
+<li>Result MOT17 test: <code>80.3 MOTA / 77.3 IDF1 / 63.1 HOTA @ ~30 FPS V100</code>. Ablation (CrowdHuman+MOT17-half-train → half-val): <code>76.6 MOTA / 79.3 IDF1 / 159 IDSW</code>. DanceTrack test: <code>47.7 HOTA / 89.6 MOTA</code> — MOTA stays high while association collapses. That split is exactly why HOTA matters.</li>
+</ul>
+</div>
+</div>
+<p class="mut">Your SYNTHESIS.md (§Stage A) stresses: MOTA ≈ 1−Σ(FN+FP+IDSW)/ΣGT is detector-heavy (R² 0.96 with DetA, 0.46 with AssA). HOTA = √(DetA·AssA) averaged over localisation thresholds is the balanced score. Lead with HOTA.</p>
+</div>
+
+<div class="card" id="s2">
+<h2>2. System overview</h2>
+<div class="flow">
+<div class="step"><b>Frame t</b><br>1920×1080 → resize 800×1440</div><div class="arrow">→</div>
+<div class="step"><b>YOLOX-X</b><br>CSPDarknet + PAN + decoupled head → ~1000 raw boxes</div><div class="arrow">→</div>
+<div class="step"><b>NMS + score split</b><br>high ≥0.5–0.6<br>low 0.1–0.5</div><div class="arrow">→</div>
+<div class="step"><b>Kalman predict</b><br>each track → predicted box</div><div class="arrow">→</div>
+<div class="step"><b>Hungarian ×2</b><br>IoU match high, then low (BYTE)</div><div class="arrow">→</div>
+<div class="step"><b>Update / birth / kill</b><br>MOT txt out</div>
+</div>
+<div class="diagram">
+<b>Data shapes:</b> detector out <code>[x1,y1,x2,y2,obj,cls] → score=obj×cls</code>, scaled back by <code>scale = min(img_size/img_h,img_w)</code>. Tracker out <code>[x1,y1,x2,y2,id]</code> (+1 because MOT needs positive IDs). No appearance vector — pure motion+IoU, so it runs on CPU after detection.
+</div>
+</div>
+
+<div class="card" id="s3">
+<h2>3. Detector: YOLOX-X in detail</h2>
+<p>ByteTrack does <b>not</b> invent a detector. It uses <b>YOLOX (Ge et al. 2021)</b>, the YOLOv3-SPP baseline upgraded:</p>
+<table>
+<tr><th>Module</th><th>What it is</th><th>Why it matters for tracking</th></tr>
+<tr><td>Backbone CSPDarknet-53 + SPP</td><td>Cross-stage-partial residual CNN</td><td>Strong person features, COCO-pretrained</td></tr>
+<tr><td>Neck PANet (FPN+PAN)</td><td>Multi-scale fusion P3/P4/P5 (stride 8/16/32)</td><td>Catches near + mid-distance people</td></tr>
+<tr><td>Decoupled head</td><td>Separate branches for cls / reg / obj (vs coupled YOLOv3 head)</td><td>Faster convergence, +1–2 AP</td></tr>
+<tr><td>Anchor-free</td><td>Direct <code>x,y,w,h</code> per grid cell, 1 prediction per location</td><td>Fewer NMS boxes, cleaner MOT input</td></tr>
+<tr><td>SimOTA label assignment</td><td>Dynamic top-k positives by cost = cls+IoU loss</td><td>Better crowded recall</td></tr>
+<tr><td>Aug: Mosaic+MixUp, EMA, cosine LR</td><td>Heavy augmentation</td><td>Robust to occlusion/lighting</td></tr>
+</table>
+<p><b>In this lab:</b> you <i>download only</i> — <code>pretrained/bytetrack_dance_model.pth.tar</code> (YOLOX-X trained on DanceTrack by ByteTrack/Hybrid-SORT zoo). No X-training (that is 80 epochs, batch 48, 8×V100, MOT17+CrowdHuman+CityPersons+ETHZ). Inference: <code>-b 1 -d 1 --fp16 --fuse</code>, image <code>800×1440</code>. Both BYTE and Hybrid-SORT share this exact checkpoint — detector frozen, so MOTA barely moves (88.3→89.5) and all HOTA gain is association.</p>
+</div>
+
+<div class="card" id="s4">
+<h2>4. Motion model: Kalman filter</h2>
+<p>Each track holds a constant-velocity Kalman state (SORT convention):</p>
+<pre>state x = [cx, cy, aspect a=w/h, height h, vx, vy, va, vh]^T   (8-dim)
+measure z = [cx, cy, a, h]  from detector box
+F = [[I4, I4],[0, I4]]  (position += velocity),  H = [I4, 0]
+Predict: x' = F·x,  P' = F·P·Fᵀ + Q
+Update:  K = P'·Hᵀ(H·P'·Hᵀ+R)⁻¹,  x = x'+K(z−H·x'),  P = (I−K·H)P'</pre>
+<p>Q/R tuned with high initial velocity uncertainty (<code>P[4:,4:] *= 1000</code> style). If a track misses, it still <i>predicts</i> forward up to <code>max_age=30</code> frames so reappearance can re-match. No camera-motion compensation, no appearance — pure linear prediction + IoU overlap. Cheap, but fails under dance spins / handheld shake (hence OC-SORT/Hybrid fix later).</p>
+</div>
+
+<div class="card" id="s5">
+<h2>5. Core invention: BYTE association</h2>
+<h3>The bug it fixes</h3>
+<p>SORT/DeepSORT: <code>if score &lt; τ_high: discard</code>. Under occlusion detector still fires but with score 0.2–0.4 → discarded → track dies → new ID on reappearance (IDSW + fragmentation).</p>
+<h3>BYTE two-round matching (per frame)</h3>
+<pre>inputs: detections D (with scores), tracks T (Kalman-predicted boxes)
+1. split: D_high = {s ≥ τ_high (0.5/0.6)}, D_low = {0.1 &lt; s &lt; τ_high}
+2. ROUND 1: cost = 1 − IoU(D_high, predict(T))
+   Hungarian assign (reject &lt; iou_thresh 0.3). Matched → update Kalman.
+   → unmatched tracks Tu, unmatched dets Du
+3. ROUND 2 (BYTE): cost = 1 − IoU(D_low, predict(Tu))
+   Hungarian assign. Matched → update (recovers occluded).
+   → still-unmatched tracks stay Lost.
+4. Birth: Du with s ≥ τ_high → new track (needs min_hits=3 to confirm).
+5. Kill: Lost &gt; max_age (30) → Removed.</pre>
+<p><b>Key properties:</b> Round 2 never creates new tracks (low boxes only rescue existing tracks → few FP). No ReID cosine, no GIoU — vanilla IoU + Hungarian (<code>lap</code> / <code>scipy.linear_sum_assignment</code>). Second match is why <code>IDSW 1947</code> here vs SORT's much higher, and why MOTA jumps on MOT17 (fewer FN).</p>
+</div>
+
+<div class="card" id="s6">
+<h2>6. Tracklet lifecycle</h2>
+<div class="diagram">
+<code>New (tentative, &lt;3 hits) → Tracked (active) ⇄ Lost (no match, ≤30 frames, Kalman coasts) → Removed (&gt;30) </code><br>
+Confirmed only if <code>hit_streak ≥ min_hits (3)</code> or <code>frame_count ≤ 3</code>. MOT output only for <code>time_since_update &lt; 1</code> (currently visible). Interpolation + per-sequence threshold tuning used only for test-server submission, not val here.
+</div>
+</div>
+
+<div class="card" id="s7">
+<h2>7. Pseudocode + thresholds used here</h2>
+<pre>BYTETracker(args, frame_rate=30):
+  track_thresh = 0.5-0.6   # τ_high (exp yolox_dancetrack_val.py)
+  low_thresh   = 0.1       # τ_low
+  iou_thresh   = 0.3
+  max_age = 30  (~1 sec), min_hits = 3
+  det_thresh alias = track_thresh in HybridSORT wrapper
+
+def update(dets):
+  dets_high, dets_low = split(dets)
+  preds = [kalman.predict() for t in tracks]
+  m1, uD, uT = hungarian(iou(dets_high, preds))
+  for (d,t) in m1: tracks[t].update(dets_high[d])
+  m2, _, uT2 = hungarian(iou(dets_low, preds[uT]))
+  for (d,t) in m2: tracks[t].update(dets_low[d])  # rescue
+  for t in uT2: tracks[t].mark_lost(); predict coasting
+  for d in uD: if score≥track_thresh: birth(d)
+  retire Lost&gt;30; output Tracked</pre>
+<p><b>Run in this repo:</b></p>
+<pre>cd third_party/HybridSORT
+python3 tools/run_byte_dance.py \
+  -f exps/example/mot/yolox_dancetrack_val.py \
+  -c pretrained/bytetrack_dance_model.pth.tar \
+  -b 1 -d 1 --fp16 --fuse --dataset dancetrack --expn byte_dancetrack_val
+# → YOLOX_outputs/.../*.txt → copied to results/dancetrack_val/byte/
+# TrackEval: --BENCHMARK DanceTrack --SPLIT_TO_EVAL val --METRICS HOTA CLEAR Identity</pre>
+<p>Deps: <code>torch 2.12+cu130 (kept, not downgraded) + lap + cython_bbox + pycocotools + filterpy</code> — see <code>scripts/setup_remote_env.sh</code>, smoke <code>scripts/smoke_imports.py → SMOKE_OK</code>, remote exec <code>scripts/remote_tnr.sh</code>.</p>
+</div>
+
+<div class="card" id="s8">
+<h2>8. Why it scores 47.124 HOTA on DanceTrack val</h2>
+<table>
+<tr><th>Metric</th><th>BYTE ours</th><th>Meaning here</th></tr>
+<tr><td>HOTA</td><td><b>47.124</b></td><td>√(DetA·AssA); matches official val 47.1 → baseline correctly reproduced</td></tr>
+<tr><td>DetA / AssA</td><td>70.648 / 31.561</td><td>Boxes fine, IDs poor — association is bottleneck</td></tr>
+<tr><td>MOTA / IDF1 / IDSW</td><td>88.301 / 51.972 / 1947</td><td>High MOTA (few FN/FP) but 1947 switches → IDF1 low</td></tr>
+</table>
+<p>DanceTrack = uniform appearance + diverse non-linear motion. Oracle-IoU is 98.1 HOTA on MOT17 val but only 72.8 on DanceTrack; appearance can even hurt (SYNTHESIS §Stage B). So BYTE's linear Kalman + IoU collapses on AssA while DetA/MOTA stay high. Published anchors: ByteTrack val 47.1 / test 47.3–47.7; your 47.124 is a near-exact repro — required gate before claiming any upgrade.</p>
+</div>
+
+<div class="card" id="s9">
+<h2>9. Failure modes → why Hybrid-SORT is needed (preview of UPGRADE-1)</h2>
+<ul class="tight">
+<li><b>Kalman linear error during occlusion/spin:</b> prediction drifts, IoU→0, track lost. Fix: Hybrid's TCM (confidence-modelled Kalman, 9-dim with score), observation-centric re-update, 4-corner velocity.</li>
+<li><b>IoU too weak for fast deformation:</b> Fix: <code>Height_Modulated_IoU</code> + direction consistency (inertia 0.2, delta_t 3).</li>
+<li><b>Camera motion:</b> Fix (BoT-SORT style CMC) — out of BYTE scope.</li>
+<li>Result: same YOLOX boxes, <code>HOTA 47.124→59.570 (+12.4), AssA 31.56→45.14, IDSW 1947→1701</code>. MOTA only 88.3→89.5 because detector frozen — proof gain is association.</li>
+</ul>
+<p class="warn">Do not compare 47.1/59.6 to MOT17 80.3 MOTA — different dataset + test-server + interpolation protocol. Allowed sentence is in <code>docs/report-notes.md</code>.</p>
+</div>
+
+<div class="card" id="s10">
+<h2>10. Repo mapping (BASE-0 only)</h2>
+<table>
+<tr><th>Path</th><th>Role</th></tr>
+<tr><td><code>docs/superpowers/specs/2026-08-19-det-track-lab-design.md</code></td><td>Locked claim: BYTE base, Hybrid upgrade, no-80.3 rule</td></tr>
+<tr><td><code>docs/superpowers/plans/2026-08-19-det-track-lab.md Tasks 1–3,5</code></td><td>Env → data/weights → BYTE run → TrackEval</td></tr>
+<tr><td><code>third_party/HybridSORT (remote) + third_party/remote_patches/</code></td><td>Official code clone; BYTE wrapper + Kalman patch reference</td></tr>
+<tr><td><code>results/dancetrack_val/byte/ + metrics.md</code></td><td>Per-seq MOT txt + Table A 47.124 row</td></tr>
+<tr><td><code>results/custom/byte/ + notebooks/videos/byte_*.mp4</code></td><td>Transfer demo (clip3 keeps 2 IDs)</td></tr>
+<tr><td><code>notebooks/dancetrack_byte_vs_improved.ipynb cells 1–2</code></td><td>Table A + bar chart <code>_nb_figs/table_a_bars.png</code></td></tr>
+<tr><td><code>scripts/setup_remote_env.sh, smoke_imports.py, remote_tnr.sh</code></td><td>A6000 env, SMOKE_OK, tnr connect 0 exec</td></tr>
+</table>
+</div>
+
+<div class="card" id="s11">
+<h2>11. References</h2>
+<p class="mut">Zhang et al. ByteTrack ECCV22 (arXiv:2110.06864) · Ge et al. YOLOX 2021 (arXiv:2107.08430) · Sun et al. DanceTrack CVPR22 (arXiv:2111.14690) · Luiten et al. HOTA IJCV20 + TrackEval GitHub · Cao et al. OC-SORT CVPR23 · Aharon et al. BoT-SORT 2022 · Yang et al. Hybrid-SORT AAAI24 (upgrade, next page).</p>
+<p><a href="#top">↑ top</a></p>
+</div>
+
+</div>
+</body>
+</html>
