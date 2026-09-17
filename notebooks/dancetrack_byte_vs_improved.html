@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CV Lab - Multi Subject Tracking</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --ink: #1a1a1a;
+    --muted: #555;
+    --line: #ccc;
+    --head: #f0f0f0;
+    --accent: #8A5A3B;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 28px; font-weight: 650; margin: 0 0 12px; }
+  h2 { font-size: 20px; font-weight: 650; margin: 36px 0 10px; }
+  h3 { font-size: 16px; font-weight: 650; margin: 0 0 8px; color: var(--accent); }
+  p { margin: 0 0 10px; }
+  .delta { font-weight: 650; color: var(--accent); margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0 20px; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  th { background: var(--head); font-weight: 650; }
+  img.fig { width: 100%; height: auto; display: block; margin: 8px 0 20px; }
+  .row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 0 0 28px;
+  }
+  .clip { min-width: 0; }
+  video {
+    width: 100%;
+    height: auto;
+    background: #111;
+    display: block;
+    border: 1px solid var(--line);
+  }
+  .fname { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .note { color: var(--muted); font-size: 13px; }
+  @media (max-width: 800px) {
+    .row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>CV Lab - Multi Subject Tracking</h1>
+  <p>Tracking-by-detection: YOLOX draws boxes; an associator assigns IDs over time.</p>
+  <p>Paper Choosen :- BYTE (ByteTrack, Zhang et al., ECCV 2022)<br>
+     Improvement: improved association implementation</p>
+  <p>Same detections for both.</p>
+  <p><b>Result.</b> DanceTrack val: BYTE <b>47.1 HOTA</b>, improved implementation <b>59.6 HOTA</b> (+12.4). AssA 31.6 to 45.1. Not compared to ByteTrack MOT17 test 80.3 MOTA.</p>
+
+  <h2>Metrics</h2>
+  <p>Evaluated on DanceTrack validation (25 sequences) with TrackEval. DanceTrack stresses similar appearance and hard motion. MOT17 80.3 MOTA is a different protocol and is out of scope here.</p>
+  <table>
+    <thead><tr><th>Metric</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>HOTA</td><td>Main score: detection + association</td></tr>
+      <tr><td>AssA</td><td>ID quality over time (main upgrade signal)</td></tr>
+      <tr><td>DetA</td><td>Box coverage</td></tr>
+      <tr><td>MOTA</td><td>CLEAR score (misses, false boxes, ID switches)</td></tr>
+      <tr><td>IDF1</td><td>ID match vs ground truth</td></tr>
+      <tr><td>IDSW</td><td>Identity-switch count (lower better)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Table A — DanceTrack val (same YOLOX)</h2>
+  <table>
+    <thead>
+      <tr><th>Method</th><th>HOTA</th><th>AssA</th><th>DetA</th><th>MOTA</th><th>IDF1</th><th>IDSW</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>BYTE (ByteTrack)</td><td>47.124</td><td>31.561</td><td>70.648</td><td>88.301</td><td>51.972</td><td>1947</td></tr>
+      <tr><td>Improved implementation</td><td>59.570</td><td>45.137</td><td>78.979</td><td>89.507</td><td>60.873</td><td>1701</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Paper anchors</h2>
+  <table>
+    <thead><tr><th>Reference</th><th>HOTA</th><th>MOTA</th><th>IDF1</th></tr></thead>
+    <tbody>
+      <tr><td>ByteTrack, DanceTrack val</td><td>47.1</td><td>88.2</td><td>51.9</td></tr>
+      <tr><td>ByteTrack, DanceTrack test</td><td>47.3–47.7</td><td>—</td><td>—</td></tr>
+    </tbody>
+  </table>
+  <p class="delta">Delta Improved − BYTE: HOTA +12.4 | AssA +13.6 | IDF1 +8.9 | IDSW 1947 to 1701</p>
+
+  <h2>Results</h2>
+  <p>BYTE is about ByteTrack’s published DanceTrack val (47.1), so the baseline is correctly reproduced.</p>
+  <p>The improved association implementation raises HOTA to 59.6, mainly via AssA. MOTA moves little because the detector is unchanged.</p>
+  <img class="fig" src="_nb_figs/table_a_bars.png" alt="DanceTrack val bar chart">
+
+  <h2>Demo videos</h2>
+  <p>Same frozen detector on three public people clips. No ground truth, so no HOTA. Use the player controls: play, pause, seek.</p>
+
+  <h3>Street crowd</h3>
+  <div class="row">
+    <div class="clip">
+      <div>Input</div>
+      <video controls playsinline preload="metadata" src="videos/clip2_street_crowd.mp4"></video>
+      <div class="fname">clip2_street_crowd.mp4</div>
+    </div>
+    <div class="clip">
+      <div>BYTE</div>
+      <video controls playsinline preload="metadata" src="videos/byte_clip2_street_crowd.mp4"></video>
+      <div class="fname">byte_clip2_street_crowd.mp4</div>
+    </div>
+    <div class="clip">
+      <div>Improved</div>
+      <video controls playsinline preload="metadata" src="videos/improved_clip2_street_crowd.mp4"></video>
+      <div class="fname">improved_clip2_street_crowd.mp4</div>
+    </div>
+  </div>
+
+  <h3>Park walk (2 people)</h3>
+  <div class="row">
+    <div class="clip">
+      <div>Input</div>
+      <video controls playsinline preload="metadata" src="videos/clip3_park_walk.mp4"></video>
+      <div class="fname">clip3_park_walk.mp4</div>
+    </div>
+    <div class="clip">
+      <div>BYTE</div>
+      <video controls playsinline preload="metadata" src="videos/byte_clip3_park_walk.mp4"></video>
+      <div class="fname">byte_clip3_park_walk.mp4</div>
+    </div>
+    <div class="clip">
+      <div>Improved</div>
+      <video controls playsinline preload="metadata" src="videos/improved_clip3_park_walk.mp4"></video>
+      <div class="fname">improved_clip3_park_walk.mp4</div>
+    </div>
+  </div>
+
+  <h3>Distant crosswalk</h3>
+  <div class="row">
+    <div class="clip">
+      <div>Input</div>
+      <video controls playsinline preload="metadata" src="videos/clip1_crosswalk.mp4"></video>
+      <div class="fname">clip1_crosswalk.mp4</div>
+    </div>
+    <div class="clip">
+      <div>BYTE</div>
+      <video controls playsinline preload="metadata" src="videos/byte_clip1_crosswalk.mp4"></video>
+      <div class="fname">byte_clip1_crosswalk.mp4</div>
+    </div>
+    <div class="clip">
+      <div>Improved</div>
+      <video controls playsinline preload="metadata" src="videos/improved_clip1_crosswalk.mp4"></video>
+      <div class="fname">improved_clip1_crosswalk.mp4</div>
+    </div>
+  </div>
+
+  <h2>Still frames (BYTE left, Improved right)</h2>
+  <p>Street crowd, frame 120.</p>
+  <img class="fig" src="_nb_figs/clip2_f120_compare.jpg" alt="Street crowd still compare">
+  <p>Park walk (2 people), frame 120.</p>
+  <img class="fig" src="_nb_figs/clip3_f120_compare.jpg" alt="Park walk still compare">
+
+  <h2>Demo counts (not HOTA)</h2>
+  <p>Park walk: 2 people, 2 IDs for both methods. Distant crosswalk ID counts are not meaningful (tiny / time-lapse pedestrians).</p>
+  <table>
+    <thead><tr><th>Clip</th><th>Method</th><th>Frames</th><th>Unique IDs</th></tr></thead>
+    <tbody>
+      <tr><td>Street crowd</td><td>BYTE</td><td>450</td><td>52</td></tr>
+      <tr><td>Street crowd</td><td>Improved</td><td>450</td><td>59</td></tr>
+      <tr><td>Park walk</td><td>BYTE</td><td>318</td><td>2</td></tr>
+      <tr><td>Park walk</td><td>Improved</td><td>318</td><td>2</td></tr>
+      <tr><td>Distant crosswalk</td><td>BYTE</td><td>450</td><td>433</td></tr>
+      <tr><td>Distant crosswalk</td><td>Improved</td><td>450</td><td>587</td></tr>
+    </tbody>
+  </table>
+</main>
+</body>
+</html>
